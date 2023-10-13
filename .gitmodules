@@ -1,0 +1,3 @@
+[submodule "locksmith_erc/lib/forge-std"]
+	path = locksmith_erc/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
