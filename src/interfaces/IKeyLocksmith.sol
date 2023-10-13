@@ -3,7 +3,7 @@ pragma solidity ^0.8.21;
 
 // The Locksmith contract should also be a generic ERC1155 token
 // underneath for minting, burning, and transfer mechanics.
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
 
 /**
  * IKeyLocksmith
@@ -89,7 +89,7 @@ interface IKeyLocksmith is IERC1155 {
      * @param keyId     the key id to bind to the keyHolder
      * @param amount    it could be multiple depending on the use case
      */
-    function soulbind(adress keyHolder, uint256 keyId, uint256 amount) external; 
+    function soulbind(address keyHolder, uint256 keyId, uint256 amount) external; 
 
     /**
      * burn 
