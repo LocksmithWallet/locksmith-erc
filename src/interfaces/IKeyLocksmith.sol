@@ -16,19 +16,6 @@ interface IKeyLocksmith is IERC1155 {
     ///////////////////////////////////////////////////////
   
     /**
-     * Account
-     *
-     * This structure defines an accoun within the trust.
-     * Each account can be accessed by permissioned keyholders.
-     * Accounts each hold sessions that enable keys to do
-     * certain things within the account.
-     */
-    struct Account {
-        bytes32 name;  // a human readable alias for the account
-        address inbox; // the address of the account contract
-    }
-
-    /**
      * Key
      *
      * This structure defines a permission within the trust's
@@ -74,43 +61,6 @@ interface IKeyLocksmith is IERC1155 {
     function name() external returns (string memory);
 
     /**
-     * addAccount
-     *
-     * The root keyholder can call this to add an account
-     * to their trust. This method assumes that the
-     * contract is already deployed, functional, and standard
-     * compliant.
-     *
-     * @param alias the name of the account
-     * @param inbox the address of the account contract
-     */
-    function addAccount(bytes32 alias, address inbox) external;
-
-    /**
-     * removeAccount
-     *
-     * The root keyholder can call this to remove an account
-     * from their trust.
-     *
-     * @param inbox the address of the inbox to remove
-     */
-    function removeAccount(address inbox) external;
-
-    /**
-     * getKeyAccount
-     *
-     * Anyone can call this method to get the account address
-     * for a given key. This returns the *default* address. The
-     * key could have other active sessions on other accounts,
-     * but that is not assumed to be the default. It is best
-     * practice to only have one active session per key.
-     *
-     * @param keyId the id of the key
-     * @return the default address of the key's account
-     */
-    function getKeyAccount() external view returns (address);
-
-    /**
      * getKeyCount()
      *
      * @return the number of mminted keys in the collection 
@@ -150,6 +100,28 @@ interface IKeyLocksmith is IERC1155 {
      * @return the token balance for that wallet and key id
      */
     function keyBalanceOf(address account, uint256 id, bool soulbound) external view returns (uint256);
+    
+    /**
+     * getKeyAccount
+     *
+     * Anyone can call this method to get the account address
+     * for a given key. This returns the *default* address. The
+     * key could have other active sessions on other accounts,
+     * but that is not assumed to be the default. It is best
+     * practice to only have one active session per key.
+     *
+     * @param keyId the id of the key
+     * @return the bytes32 encoded name of the key
+     * @return the default address of the key's account
+     */
+    function getKeyAccount() external view returns (bytes32, address);
+
+    /**
+     * accounts 
+     *
+     * @return a list of accounts for this trust
+     */
+    function accounts() external view returns (address[] memory);
 
     ////////////////////////////////////////////////////////
     // Locksmith methods 
@@ -157,6 +129,29 @@ interface IKeyLocksmith is IERC1155 {
     // Only the anointed locksmith can call these, which
     // will be any holder of the 0 keyId.
     ////////////////////////////////////////////////////////
+    
+    /**
+     * addAccount
+     *
+     * The root keyholder can call this to add an account
+     * to their trust. This method assumes that the
+     * contract is already deployed, functional, and standard
+     * compliant.
+     *
+     * @param inbox the address of the account contract
+     */
+    function addAccount(address inbox) external;
+
+    /**
+     * removeAccount
+     *
+     * The root keyholder can call this to remove an account
+     * from their trust. Should revert if the inbox doesn't
+     * exist.
+     *
+     * @param inbox the address of the inbox to remove
+     */
+    function removeAccount(address inbox) external;
     
     /**
      * createKey
