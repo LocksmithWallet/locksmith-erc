@@ -12,6 +12,37 @@ import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
  */
 interface IKeyLocksmith is IERC1155 {
     ///////////////////////////////////////////////////////
+    // Data Structures
+    ///////////////////////////////////////////////////////
+  
+    /**
+     * Account
+     *
+     * This structure defines an accoun within the trust.
+     * Each account can be accessed by permissioned keyholders.
+     * Accounts each hold sessions that enable keys to do
+     * certain things within the account.
+     */
+    struct Account {
+        bytes32 name;  // a human readable alias for the account
+        address inbox; // the address of the account contract
+    }
+
+    /**
+     * Key
+     *
+     * This structure defines a permission within the trust's
+     * collection. A key can be held by an address, and used
+     * to access accounts. These accounts will have sessions
+     * attached to them that will enable or disable access
+     * to certain funds and behaviors.
+     */
+    struct Key {
+        bytes32 name;    // a human readable alias for the key
+        address account; // the default account for all actions 
+    }
+
+    ///////////////////////////////////////////////////////
     // Events
     //
     // For mint, burn, and transfers, we leverage the existing
@@ -38,17 +69,51 @@ interface IKeyLocksmith is IERC1155 {
     /**
      * name
      *
-     * @return the name of the collection
+     * @return the name of the wallet 
      */
     function name() external returns (string memory);
 
     /**
+     * addAccount
+     *
+     * The root keyholder can call this to add an account
+     * to their trust. This method assumes that the
+     * contract is already deployed, functional, and standard
+     * compliant.
+     *
+     * @param alias the name of the account
+     * @param inbox the address of the account contract
+     */
+    function addAccount(bytes32 alias, address inbox) external;
+
+    /**
+     * removeAccount
+     *
+     * The root keyholder can call this to remove an account
+     * from their trust.
+     *
+     * @param inbox the address of the inbox to remove
+     */
+    function removeAccount(address inbox) external;
+
+    /**
+     * getKeyAccount
+     *
+     * Anyone can call this method to get the account address
+     * for a given key. This returns the *default* address. The
+     * key could have other active sessions on other accounts,
+     * but that is not assumed to be the default. It is best
+     * practice to only have one active session per key.
+     *
+     * @param keyId the id of the key
+     * @return the default address of the key's account
+     */
+    function getKeyAccount() external view returns (address);
+
+    /**
      * getKeyCount()
      *
-     * This evil bytecode is necessary to return a list of keys
-     * that have been minted and have an active balance. 
-     *
-     * @return the number of keys in the collection 
+     * @return the number of mminted keys in the collection 
      */
     function getKeyCount() external view returns (uint256);
 
