@@ -13,6 +13,9 @@ import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
 interface IKeyLocksmith is IERC1155 {
     ///////////////////////////////////////////////////////
     // Events
+    //
+    // For mint, burn, and transfers, we leverage the existing
+    // ERC1155 event pattern.
     ///////////////////////////////////////////////////////
     
     /**
@@ -31,7 +34,24 @@ interface IKeyLocksmith is IERC1155 {
     ////////////////////////////////////////////////////////
     // Introspection
     ////////////////////////////////////////////////////////
-  
+
+    /**
+     * name
+     *
+     * @return the name of the collection
+     */
+    function name() external returns (string memory);
+
+    /**
+     * getKeyCount()
+     *
+     * This evil bytecode is necessary to return a list of keys
+     * that have been minted and have an active balance. 
+     *
+     * @return the number of keys in the collection 
+     */
+    function getKeyCount() external view returns (uint256);
+
     /**
      * getKeys
      *
@@ -44,7 +64,7 @@ interface IKeyLocksmith is IERC1155 {
     function getKeys(address holder) external view returns (uint256[] memory); 
 
     /**
-     * getHolders
+     * getKeyHolders
      *
      * This method will return the addresses that hold
      * a particular keyId
@@ -52,7 +72,7 @@ interface IKeyLocksmith is IERC1155 {
      * @param keyId the key ID to look for
      * @return an array of addresses that hold that key
      */
-    function getHolders(uint256 keyId) external view returns (address[] memory); 
+    function getKeyHolders(uint256 keyId) external view returns (address[] memory); 
     
     /**
      * keyBalanceOf 
@@ -69,8 +89,49 @@ interface IKeyLocksmith is IERC1155 {
     ////////////////////////////////////////////////////////
     // Locksmith methods 
     //
-    // Only the anointed locksmith can call these. 
+    // Only the anointed locksmith can call these, which
+    // will be any holder of the 0 keyId.
     ////////////////////////////////////////////////////////
+    
+    /**
+     * createKey
+     *
+     * The holder of a root key can use it to generate brand new keys
+     * and add them to the root key's associated trust, sending it to the
+     * destination wallets.
+     *
+     * This method, in batch, will mint and send 1 new ERC1155 key
+     * to each of the provided addresses.
+     *
+     * By default this key will not have any account sessions
+     * attached to them.
+     *
+     * @param keyName   an alias that you want to give the key
+     * @param uri       the URI of the token with associated metadata
+     * @param receiver  address you want to receive an NFT key for the trust
+     * @param bind      true if you want to bind the key to the receiver
+     * @return the ID of the key that was created
+     */
+    function createKey(bytes32 keyName, string uri, address receiver, bool bind) external returns (uint256);
+    
+    /**
+     * copyKey
+     *
+     * The root key holder can call this method if they have an existing key
+     * they want to copy. This allows multiple people to fulfill the same role,
+     * share a set of sessions, or enables the root key holder to restore
+     * the role for someone who lost their seed or access to their wallet.
+     *
+     * This method can only be invoked with a root key, which is held by
+     * the message sender.
+     *
+     * This method will revert if the key isn't valid.
+     *
+     * @param keyId     key ID the message sender wishes to copy
+     * @param receiver  addresses of the receivers for the copied key.
+     * @param bind      true if you want to bind the key to the receiver
+     */
+    function copyKey(uint256 rootKeyId, uint256 keyId, address receiver, bool bind) external;
 
     /**
      * soulbind
@@ -92,7 +153,7 @@ interface IKeyLocksmith is IERC1155 {
     function soulbind(address keyHolder, uint256 keyId, uint256 amount) external; 
 
     /**
-     * burn 
+     * burnKey
      *
      * The caller must be the locksmith, or can only burn their own keys.
      * If the message sender is also the holder, they are capable of burning
@@ -102,5 +163,5 @@ interface IKeyLocksmith is IERC1155 {
      * @param keyId      the ERC1155 NFT ID you want to burn
      * @param burnAmount the number of said keys you want to burn from the holder's possession.
      */
-    function burn(address holder, uint256 keyId, uint256 burnAmount) external;    
+    function burnKey(address holder, uint256 keyId, uint256 burnAmount) external;    
 }
