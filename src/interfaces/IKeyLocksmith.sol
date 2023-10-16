@@ -163,17 +163,32 @@ interface IKeyLocksmith is IERC1155 {
      * This method, in batch, will mint and send 1 new ERC1155 key
      * to each of the provided addresses.
      *
-     * By default this key will not have any account sessions
-     * attached to them.
+     * The inbox is the default account for the key action. This can
+     * be set, and the inbox account will be added to the trust's list
+     * if it is not already there.
      *
      * @param keyName   an alias that you want to give the key
      * @param uri       the URI of the token with associated metadata
+     * @param inbox     the address of the inbox to make default
      * @param receiver  address you want to receive an NFT key for the trust
      * @param bind      true if you want to bind the key to the receiver
      * @return the ID of the key that was created
      */
-    function createKey(bytes32 keyName, string uri, address receiver, bool bind) external returns (uint256);
-    
+    function createKey(bytes32 keyName, string uri, address inbox, address receiver, bool bind) external returns (uint256);
+   
+    /**
+     * setDefaultKeyAccount
+     *
+     * Sets the default key inbox account. This can only be called
+     * by the root key holder. If the inbox account is not already in
+     * the list, it will be added. If a default inbox is overridden,
+     * the previous inbox address will not be removed from the trust list.
+     *
+     * @param keyId the id of the key you want to set the default for
+     * @param inbox the address of the account you want to be default
+     */
+    function setDefaultKeyAccount(uint256 keyId, address inbox) external;
+
     /**
      * copyKey
      *
