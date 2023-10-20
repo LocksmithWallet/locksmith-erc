@@ -65,7 +65,7 @@ interface IKeyAccount {
      * @param keyId       the key ID the message sender is declaring to use
      * @param destination the target address for the operation
      * @param value       the amount of ether/gas you want to send as part of this transaciton
-     * @param operation   (0: call, 1: delegatecall, 2: create, 3: create2)
+     * @param operation   (0: call, 1: create, 2: create2)
      * @param data        the actual serialized method bytes and parameters
      * @return the raw memory of the method's response. this will need deserialization.
      */
