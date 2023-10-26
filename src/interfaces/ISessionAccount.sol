@@ -44,11 +44,11 @@ interface ISessionAccount is IERC1155 {
     function name() external returns (string memory);
 
     /**
-     * getKeyCount()
+     * keyCount ()
      *
      * @return the number of mminted keys in the collection 
      */
-    function getKeyCount() external view returns (uint256);
+    function keyCount() external view returns (uint256);
 
     /**
      * getKeys
