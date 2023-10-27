@@ -14,7 +14,7 @@ import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 using EnumerableSet for EnumerableSet.AddressSet;
 
-contract BadSessionAccountTest is Test, ERC1155Holder {
+contract CodeCoverageTest is Test, ERC1155Holder {
     BadSessionAccount public account;
     string public constant mnemonic = "test test test test test test test test test test test junk"; 
 
