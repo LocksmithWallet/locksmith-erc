@@ -10,6 +10,7 @@ import {
     UnauthorizedDestination
 } from "../src/BadSessionAccount.sol";
 import { ShadowERC } from 'test/ShadowERC.sol';
+import { Shadow721 } from 'test/Shadow721.sol';
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
@@ -18,6 +19,7 @@ using EnumerableSet for EnumerableSet.AddressSet;
 contract CodeCoverageTest is Test, ERC1155Holder {
     BadSessionAccount public account;
     ShadowERC public erc20; 
+    Shadow721 public erc721;
 
     string public constant mnemonic = "test test test test test test test test test test test junk"; 
 
@@ -38,6 +40,7 @@ contract CodeCoverageTest is Test, ERC1155Holder {
         // create the tokens
         erc20 = new ShadowERC('Link', 'LINK');
         erc20.spawn(1 ether);
+        erc721 = new Shadow721();
 
         // prepare a second operator in case we need to prank
         second = vm.addr(vm.deriveKey(mnemonic, 0));
@@ -71,6 +74,19 @@ contract CodeCoverageTest is Test, ERC1155Holder {
         assertEq(erc20.balanceOf(address(second)), 1 ether);
     }
 
+    function test_Deposit721AndSendAsRoot() public {
+        // mint nft 
+        erc721.safeMint(address(account), 1);
+        assertEq(erc721.ownerOf(1), address(account));
+
+        // use the root key to send it to second
+        account.execute(0, address(erc721), 0,
+            abi.encodeWithSelector(erc721.transferFrom.selector, address(account), second, 1));
+
+        // did it move properly?
+        assertEq(erc721.ownerOf(1), address(second));
+    }
+
     function test_DepositTokensCantSendWithoutRoot() public {
         erc20.transfer(address(account), 1 ether);
 
@@ -85,6 +101,21 @@ contract CodeCoverageTest is Test, ERC1155Holder {
             abi.encodeWithSelector(erc20.transfer.selector, second, 1 ether));
     }
 
+    function test_Deposit721CantSendWithoutRoot() public {
+        // mint nft into account
+        erc721.safeMint(address(account), 1);
+        
+        // send away root
+        account.safeTransferFrom(address(this), second, 0, 1, '');
+
+        // try to send NFT but will fail
+        vm.expectRevert(Unauthorized.selector);
+
+        // caller doesn't hold root key
+        account.execute(0, address(erc721), 0,
+            abi.encodeWithSelector(erc721.transferFrom.selector, address(account), second, 1));
+    }
+
     function test_DepositTokensSessionCantSend() public {
         // create a session that doesn't have erc20 access
         account.createKey(1, address(this));
@@ -96,6 +127,10 @@ contract CodeCoverageTest is Test, ERC1155Holder {
         // attempt to send
         account.execute(1, address(erc20), 0,
             abi.encodeWithSelector(erc20.transfer.selector, second, 1 ether));
+    }
+
+    function test_Deposit721SessionCantSend() public {
+
     }
 
     function test_DepositTokensSessionCanSend() public {
