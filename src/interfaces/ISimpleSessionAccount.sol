@@ -80,14 +80,14 @@ interface ISimpleSessionAccount is IERC1155 {
      *
      * @param keyId       the key ID the message sender is declaring to use
      * @param destination the target address for the operation
-     * @param value       the amount of ether/gas you want to send as part of this transaciton
+     * @param msgValue    the amount of ether/gas you want to send as part of this transaciton
      * @param data        the actual serialized method bytes and parameters
      * @return the raw memory of the method's response. this will need deserialization.
      */
     function execute(
         uint256 keyId,
         address destination,
-        uint256 value,
+        uint256 msgValue,
         bytes calldata data
-    ) external payable returns (bytes memory);
+    ) external returns (bytes memory);
 }

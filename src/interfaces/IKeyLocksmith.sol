@@ -114,7 +114,7 @@ interface IKeyLocksmith is IERC1155 {
      * @return the bytes32 encoded name of the key
      * @return the default address of the key's account
      */
-    function getKeyAccount() external view returns (bytes32, address);
+    function getKeyAccount(uint256 keyId) external view returns (bytes32, address);
 
     /**
      * accounts 
@@ -174,7 +174,7 @@ interface IKeyLocksmith is IERC1155 {
      * @param bind      true if you want to bind the key to the receiver
      * @return the ID of the key that was created
      */
-    function createKey(bytes32 keyName, string uri, address inbox, address receiver, bool bind) external returns (uint256);
+    function createKey(bytes32 keyName, string memory uri, address inbox, address receiver, bool bind) external returns (uint256);
    
     /**
      * setDefaultKeyAccount

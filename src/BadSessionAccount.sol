@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT 
 pragma solidity ^0.8.21;
 
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 
-import "interfaces/ISimpleSessionAccount.sol";
-import "interfaces/ISessionManager.sol";
+import "src/interfaces/ISimpleSessionAccount.sol";
+import "src/interfaces/ISessionManager.sol";
 
-import "@openzeppeli-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 using EnumerableSet for EnumerableSet.AddressSet;
 using EnumerableSet for EnumerableSet.UintSet;
 
@@ -31,20 +33,16 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
     // Data Structures
     ////////////////////////////////////////////////////////
     struct Session {
-        bool valid;                                   // ensure a valid mapping
+        bool valid;             // ensure a valid mapping
+        uint256 etherAllowance; // total remaining ether allowance
         
-        uint256 etherAllowance;                       // total remaining ether allowance
-        EnumerableSet.AddressSet allowedDestinations; // only these addresses can be called
-        
-        EnumerableSet.AddressSet monitoredTokens;     // a list of tokens we want to monitor
-        mapping(address => uint256) tokenAllowances;  // the mapping of total allowances for those tokens
-        
-        EnumerableSet.AddressSet monitoredNFTs;                         // a list of NFTs we want to monitor
-        mapping(address => EnumerableSet.UintSet) monitoredIds;         // a list of ids to monitor per collection
-        mapping(address => mapping(uint256 => uint256)) nftAllowances;  // contract => tokenId => allowance 
- 
-        EnumerableSet.Bytes32Set nftHashes;    // storage buffer used to keep temporary NFT/ID hashes
-        mapping(bytes32 => uint256) nftBuffer; // storage that is used to keep temporary NFT/ID => balance mappings
+        // these destinations determine what contracts can be interacted with.
+        // this acts as an application and asset allow list. If the list is empty
+        // we can assume that there are no restrictions. Access to assets is binary -
+        // either you can interact with it (and use all the assets, potentially)
+        // or you can't interact with it at all (and not set allowances, transfer,
+        // or do anything meaningful).
+        EnumerableSet.AddressSet allowedDestinations;
     }
     
     ////////////////////////////////////////////////////////
@@ -52,6 +50,11 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
     ////////////////////////////////////////////////////////
     // each unique key can only have one session
     mapping(uint256 => Session) keySessions;
+
+    constructor() ERC1155('') {
+        // give a root key to the deployer
+        _mint(msg.sender, 0, 1, '');
+    }
 
     ////////////////////////////////////////////////////////
     // Locksmith methods 
@@ -109,49 +112,19 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
      * @param keyId           the nft ID that defines the session holder
      * @param destinations    the list of destination addresses that are valid for this session
      * @param totalValue      the total amount of ether that can be used in this session
-     * @param tokens          the list of tokens we want to maintain balances for
-     * @param tokenAllowance  the list of token allowances per listed token address
-     * @param nfts            the list of nfts we want to maintain balances for
-     * @param nftIds          the list of nfts token IDs per listed token address
-     * @param nftAllowance    the list of nft id allowances
-     * @return
      */
-    function createSession(
-        address keyId,
-        address[] destinations,
-        uint256 totalValue,
-        address[] tokens,
-        uint256[] tokenAllowances,
-        address[] nfts,
-        uint256[] nftIds,
-        uint256[] nftAllowance) external onlyLocksmith {
-
+    function createSession(uint256 keyId, address[] memory destinations, uint256 totalValue) external onlyLocksmith {
         // for simplicity sake, let's assume you can't overwrite a session
         if (keySessions[keyId].valid) {
             revert ExistingSession(); 
         }
 
-        // make sure the dimensions of the input is sane
-        if ((tokens.length != tokenAllowances.length) ||
-            (nfts.length != nftIds.length) || (nfts.length != nftAllowance.length) ) {
-            return BadInput();
-        }
-
         // store the session
         Session storage s = keySessions[keyId];
-        s.valid = true
+        s.valid = true;
         s.etherAllowance = totalValue;
         for (uint256 x = 0; x < destinations.length; x++) {
             s.allowedDestinations.add(destinations[x]);
-        }
-        for (uint256 y = 0; y < tokens.length; y++) {
-            s.monitoredTokens.add(tokens[y]);
-            s.tokenAllowances[tokens[y]] = tokenAllowances[y];
-        }
-        for (uint256 z = 0; z < nfts.length; z++) {
-            s.monitoredNFTs.add(nfts[z]);
-            s.monitoredIds[nfts[z]].add(nftIds[z]);
-            s.nftAllowances[nfts[z]][nftIds[z]] = nftAllowance[z];
         }
     }
     
@@ -190,84 +163,71 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
      *
      * @param keyId       the key ID the message sender is declaring to use
      * @param destination the target address for the operation
-     * @param value       the amount of ether/gas you want to send as part of this transaciton
+     * @param msgValue    the amount of ether/gas you want to send as part of this transaciton
      * @param data        the actual serialized method bytes and parameters
      * @return the raw memory of the method's response. this will need deserialization.
      */
     function execute(
         uint256 keyId,
         address destination,
-        uint256 value,
+        uint256 msgValue,
         bytes calldata data
-    ) external payable returns (bytes memory) {
+    ) external returns (bytes memory) {
         // fail if the caller isn't holding the declared key 
         if (balanceOf(msg.sender, keyId) < 1) {
             revert Unauthorized();
         }
 
+        // now: the msg.sender holds the declared ke
+        // if the declared key is the master key, execute quickly
+        // without any restrictions and exit immediately
         if (0 == keyId) {
-            (bool success, bytes memory resp) = payable(destination).call{value: value}(data);
+            (bool success, bytes memory resp) = payable(destination).call{value: msgValue}(data);
             assert(success);
             return resp;
         }
 
-        // attempt to get the valid session and 
-        // fail if there is no valid session for the key
+        // if not root, attempt to find a valid session
         Session storage s = keySessions[keyId];
         if (!s.valid) {
             revert Unauthorized();
         }
    
-        // we have a valid non-root session. check
-        // to see if there is any destination restrictions.
-        // an empty list semantically acts as no restrictions
+        // now: we have a valid non-root session.
+        // check for any relevant destination restrictions.
+        // note: an empty list semantically acts as no restrictions
         if (s.allowedDestinations.length() != 0 && !s.allowedDestinations.contains(destination)) {
             revert UnauthorizedDestination();
         }
 
-        // check to see that the value doesn't overspend
-        if (s.etherAllowance < value) {
+        // ensure the requested value doesn't overspend
+        if (s.etherAllowance < msgValue) {
             revert InsufficientAllowance();        
         }
 
-        // collect the initial token balances 
-        uint256 memory tokenBalances[] = new uint256[](s.monitoredTokens.length());
-        address memory tokenAddresses[] = s.monitoredTokens.values(); 
-        for (uint256 x = 0; x < tokenBalances.length; x++) {
-            tokenBalances[x] = IERC20(tokenAddresses[x]).balanceOf(address(this));
-        }
-
-        // collect the initial NFT Balances
-        address memory nftAddresses[] = s.monitoredNFTs.values();
-        for(uint256 x = 0; x < nftAddresses.length; x++) {
-            uint256[] memory ids = monitoredIds[nftAddresses[x]].values();
-       
-            for(uint256 y = 0; y < ids.length; y++) {
-                // generate and store the hashes, as well as get the balance
-                bytes32 hash = keccak256(abi.encode(nftAddresses[x], ids[y]));
-            }
-        }
+        // this won't underflow, so store the new
+        // allowance
+        s.etherAllowance -= msgValue;
 
         // do the actual thing
-        (bool success, bytes memory resp) = payable(destination).call{value: value}(data);
+        // warning: this is re-entrant!
+        (bool returnCode, bytes memory response) = payable(destination).call{value: msgValue}(data);
+        assert(returnCode);
+        return response;
+    }
 
-        // double check the resulting token balances 
-        for(uint256 x = 0; x < tokenBalances.length; x++) {
-            uint256 newBalance = IERC20(tokenAddresses[x]).balanceOf(address(this));
-
-            // if the balance hasn't changed or gone up, no allowance is used 
-            if (tokenBalances[x] <= newBalance) {
-                continue;
-            }
-
-            // if the new balance for this token is now less,
-            // and the difference is bigger than the allowance, error
-            if(tokenBalances[x] - newBalance > s.tokenAllowances[tokenAddresses[x]]) {
-                revert InsufficientAllowance();
-            } else {
-                // at this point, simply reduce the allowance
-                s.tokenAllowances[tokenAddresses[x]] -= (tokenBalances[x] - newBalance);
-            }
-        }
+    /**
+     * supportsInterface
+     *
+     * We need a custom implementation here
+     * because we are both an ERC1155, and can hold NFTs as well.
+     *
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC1155, ERC1155Holder) returns (bool) {
+        return
+            interfaceId == type(IERC1155).interfaceId ||
+            interfaceId == type(IERC1155MetadataURI).interfaceId ||
+            interfaceId == type(IERC1155Receiver).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

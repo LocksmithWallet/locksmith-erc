@@ -23,13 +23,6 @@ interface ISessionManager {
      * @param keyId           the nft ID that defines the session holder
      * @param destinations    the list of destination addresses that are valid for this session
      * @param totalValue      the total amount of ether that can be used in this session
-     * @param tokens          the list of tokens we want to maintain balances for
-     * @param tokenAllowance  the list of token allowances per listed token address
      */
-    function createSession(
-        address keyId,
-        address[] destinations, 
-        uint256 totalValue,
-        address[] tokens,
-        uint256[] tokenAllowances) external;
+    function createSession(uint256 keyId, address[] memory destinations, uint256 totalValue) external;
 }

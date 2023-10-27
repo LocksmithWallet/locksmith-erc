@@ -107,7 +107,7 @@ interface ISessionAccount is IERC1155 {
      * @param bind      true if you want to bind the key to the receiver
      * @return the ID of the key that was created
      */
-    function createKey(bytes32 keyName, string uri, address receiver, bool bind) external returns (uint256);
+    function createKey(bytes32 keyName, string memory uri, address receiver, bool bind) external returns (uint256);
    
     /**
      * copyKey
