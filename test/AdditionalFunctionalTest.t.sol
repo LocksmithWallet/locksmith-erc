@@ -28,6 +28,7 @@ contract CodeCoverageTest is Test, ERC1155Holder {
     address[] public emptyDestinations;
     EnumerableSet.AddressSet private destinations;
     EnumerableSet.AddressSet private onlyERC20;
+    EnumerableSet.AddressSet private onlyERC721;
 
     receive() external payable { 
         // needed to be able to take money
@@ -55,6 +56,7 @@ contract CodeCoverageTest is Test, ERC1155Holder {
         destinations.add(0x4E5d95F1D3d1b1FB4a169554A6bff1fD164ACa2c);
         destinations.add(0xB617dFa5Cf63C55F5E3f351A70488cE34EDcc9C6);
         onlyERC20.add(address(erc20));
+        onlyERC721.add(address(erc721));
     }
 
     function test_DepositTokensAndSendAsRoot() public {
@@ -130,7 +132,16 @@ contract CodeCoverageTest is Test, ERC1155Holder {
     }
 
     function test_Deposit721SessionCantSend() public {
+        // create a session that doesn't have 721 access
+        account.createKey(1, address(this));
+        account.createSession(1, destinations.values(), 0);
 
+        // expect the send to fail for authorization
+        vm.expectRevert(UnauthorizedDestination.selector);
+
+        // attempt to send
+        account.execute(1, address(erc721), 0,
+            abi.encodeWithSelector(erc721.transferFrom.selector, address(account), second, 1));
     }
 
     function test_DepositTokensSessionCanSend() public {
@@ -143,5 +154,20 @@ contract CodeCoverageTest is Test, ERC1155Holder {
             abi.encodeWithSelector(erc20.transfer.selector, second, 1 ether));
         assertEq(erc20.balanceOf(second), 1 ether);
         assertEq(erc20.balanceOf(address(account)), 0 ether);
+    }
+
+    function test_Deposit721SessionCanSend() public {
+        // mint nft into account
+        erc721.safeMint(address(account), 1);
+        assertEq(erc721.ownerOf(1), address(account));
+
+        // create a session that has 721 access
+        account.createKey(1, address(this));
+        account.createSession(1, onlyERC721.values(), 0);
+        
+        // send the thing to second
+        account.execute(1, address(erc721), 0,
+            abi.encodeWithSelector(erc721.transferFrom.selector, address(account), second, 1));
+        assertEq(erc721.ownerOf(1), second);
     }
 }
