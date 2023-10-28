@@ -15,6 +15,8 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 using EnumerableSet for EnumerableSet.AddressSet;
 using EnumerableSet for EnumerableSet.UintSet;
 
+import {console2} from "forge-std/Test.sol";
+
 error Unauthorized();
 error ExistingSession();
 error BadInput();
@@ -178,7 +180,7 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
             revert Unauthorized();
         }
 
-        // now: the msg.sender holds the declared ke
+        // now: the msg.sender holds the declared key
         // if the declared key is the master key, execute quickly
         // without any restrictions and exit immediately
         if (0 == keyId) {
@@ -205,8 +207,7 @@ contract BadSessionAccount is ISimpleSessionAccount, ISessionManager, ERC1155, E
             revert InsufficientAllowance();        
         }
 
-        // this won't underflow, so store the new
-        // allowance
+        // this won't underflow, so store the new allowance
         s.etherAllowance -= msgValue;
 
         // do the actual thing
